@@ -59,7 +59,7 @@ const form = ref({
 const fetchCourses = () => {
   axios.get('http://localhost:8080/api/course/list')
     .then(response => {
-      courses.value = response.data
+      courses.value = response.data.data
     })
     .catch(error => {
       console.error("查询失败：", error)
