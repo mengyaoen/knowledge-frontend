@@ -38,6 +38,14 @@
           <el-form-item label="用户名">
             <el-input v-model="forgotForm.username" placeholder="请输入注册时的用户名" />
           </el-form-item>
+                    <el-form-item label="验证码">
+            <div style="display: flex; gap: 10px;">
+              <el-input v-model="forgotForm.code" placeholder="请输入验证码" />
+              <el-button type="primary" @click="sendCode" :disabled="countdown > 0">
+                {{ countdown > 0 ? countdown + '秒后重发' : '获取验证码' }}
+              </el-button>
+            </div>
+          </el-form-item>
           <el-form-item label="新密码">
             <el-input v-model="forgotForm.newPassword" type="password" placeholder="请输入新密码" />
           </el-form-item>
@@ -250,22 +258,49 @@ const submitUpdatePwd = () => {
 
 // 忘记密码
 const forgotPwdVisible = ref(false)
-const forgotForm = ref({ username: '', newPassword: '', confirmPassword: '' })
+const forgotForm = ref({ username: '', code: '', newPassword: '', confirmPassword: '' })
+const countdown = ref(0)
 const openForgotPwdDialog = () => {
   forgotForm.value = { username: '', newPassword: '', confirmPassword: '' }
   forgotPwdVisible.value = true
 }
+// 发送验证码
+const sendCode = () => {
+  if (!forgotForm.value.username) return ElMessage.warning('请先输入用户名')
+  request.post('/api/user/sendCode', { username: forgotForm.value.username }).then(res => {
+    if (res.code === 200) {
+      ElMessage.success('验证码已发送，请在 IDEA 控制台查看！')
+      countdown.value = 60
+      const timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) clearInterval(timer)
+      }, 1000)
+    } else {
+      ElMessage.error(res.msg)
+    }
+  })
+}
+// 提交重置密码
 const submitForgotPwd = () => {
-  if (!forgotForm.value.username || !forgotForm.value.newPassword) return ElMessage.warning('用户名和新密码不能为空')
-  if (forgotForm.value.newPassword !== forgotForm.value.confirmPassword) return ElMessage.warning('两次输入的密码不一致！')
-  request.post('/api/user/resetPassword', { username: forgotForm.value.username, newPassword: forgotForm.value.newPassword }).then(res => {
+  if (!forgotForm.value.username || !forgotForm.value.code || !forgotForm.value.newPassword) {
+    return ElMessage.warning('用户名、验证码和新密码不能为空')
+  }
+  if (forgotForm.value.newPassword !== forgotForm.value.confirmPassword) {
+    return ElMessage.warning('两次输入的密码不一致！')
+  }
+  request.post('/api/user/resetPassword', {
+    username: forgotForm.value.username,
+    code: forgotForm.value.code, // 👈 新增：将验证码传给后端
+    newPassword: forgotForm.value.newPassword
+  }).then(res => {
     if (res.code === 200) {
       ElMessage.success('密码重置成功，请用新密码登录！')
       forgotPwdVisible.value = false
-    } else { ElMessage.error(res.msg) }
-  }).catch(err => { ElMessage.error('网络错误，请检查后端'); console.error(err) })
+    } else {
+      ElMessage.error(res.msg)
+    }
+  })
 }
-
 const handleSelect = (index) => { activeMenu.value = index }
 
 // 详情弹窗与评论
